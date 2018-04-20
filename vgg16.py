@@ -73,11 +73,12 @@ prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
 print "good till here2"
 
+#vgg
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
     sess.run(tf.local_variables_initializer())
-    path = pathlib.Path('./vgg16_weights.npz')
+    path = pathlib.Path('./../weights/vgg16_weights.npz')
     if(path.is_file()):
         print("it's a mattafaca")
         init_weights = np.load(path)
@@ -119,22 +120,22 @@ with tf.Session() as sess:
                                                              })
         #print(assign_op, feed_dict_init)
         sess.run(assign_op, feed_dict_init)
-        img = Image.open('cat1.jpg')
+        img = Image.open('data/cat1.jpg')
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
         print(pred_lbl)
 
-        img2 = Image.open('cat2.jpeg')
+        img2 = Image.open('data/dog4.jpg')
         img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
         pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
         print(pred_lbl, proba[0][pred_lbl])
 
-        img2 = Image.open('dog1.jpg')
+        img2 = Image.open('data/dog1.jpg')
         img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
         pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
         print(pred_lbl, proba[0][pred_lbl])
 
-        img2 = Image.open('dog2.jpg')
+        img2 = Image.open('data/dog2.jpg')
         img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
         pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
         print(pred_lbl, proba[0][pred_lbl])

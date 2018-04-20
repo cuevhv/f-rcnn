@@ -11,7 +11,7 @@ from tensorflow.contrib.slim.nets import vgg
 slim = tf.contrib.slim
 import pathlib
 
-def netvgg(inputs, is_training = True):
+def netvgg(inputs, num_anchors, is_training = True):
     inputs = tf.cast(inputs, tf.float32)
     inputs = ((inputs / 255.0) -0.5)*2
 
@@ -28,9 +28,9 @@ def netvgg(inputs, is_training = True):
             net = slim.max_pool2d(net, [2, 2], scope = 'pool4')
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
             #net = slim.max_pool2d(net, [2, 2], scope = 'pool5')
-            net1 = slim.conv2d(net, 2*9, [1, 1], scope='prob_object')
+            net1 = slim.conv2d(net, 2*num_anchors, [1, 1], scope='prob_object')
             print(net1)
-            net2 = slim.conv2d(net, 4*9, [1, 1], scope='bbox')
+            net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox')
             print(net2)
         net = slim.flatten(net)
         w_init = tf.contrib.layers.xavier_initializer()
@@ -65,13 +65,24 @@ def optimize(losses):
                 #var_list=slim.get_model_variables("finetune"))
     return train_op
 
-tf.reset_default_graph()
+
+"""Data needed so far"""
 im_width=224
 im_height=224
+anchor_scales=(8, 16, 32)
+anchor_ratios=(0.5, 1, 2)
+num_scales = len(anchor_scales)
+num_ratios = len(anchor_ratios)
+
+num_anchors = num_scales*num_ratios
+
 print "good till here1"
 
+
+
+tf.reset_default_graph()
 im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
-logits = netvgg(im_placeholder, is_training=False)
+logits = netvgg(im_placeholder, num_anchors, is_training=False)
 prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
 print "good till here2"
@@ -80,7 +91,7 @@ with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
     sess.run(tf.local_variables_initializer())
-    path = pathlib.Path('./vgg16_weights.npz')
+    path = pathlib.Path('./../weights/vgg16_weights.npz')
     if(path.is_file()):
         print("it's a mattafaca")
         init_weights = np.load(path)
@@ -122,25 +133,10 @@ with tf.Session() as sess:
                                                              })
         #print(assign_op, feed_dict_init)
         sess.run(assign_op, feed_dict_init)
-        img = Image.open('cat1.jpg')
+        img = Image.open('data/cat1.jpg')
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
         print(pred_lbl)
-
-        img2 = Image.open('cat2.jpeg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
-
-        img2 = Image.open('dog1.jpg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
-
-        img2 = Image.open('dog2.jpg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
         #for k in init_weights.files:
             #print(k)
 
