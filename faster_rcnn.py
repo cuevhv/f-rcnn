@@ -11,7 +11,12 @@ from tensorflow.contrib.slim.nets import vgg
 slim = tf.contrib.slim
 import pathlib
 
-def netvgg(inputs, num_anchors, is_training = True):
+"""Keras you are my hope"""
+import keras as K
+import keras.layers as KL
+
+
+def netvgg_conv(inputs, is_training = True):
     inputs = tf.cast(inputs, tf.float32)
     inputs = ((inputs / 255.0) -0.5)*2
 
@@ -27,30 +32,64 @@ def netvgg(inputs, num_anchors, is_training = True):
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
             net = slim.max_pool2d(net, [2, 2], scope = 'pool4')
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
-            #net = slim.max_pool2d(net, [2, 2], scope = 'pool5')
-            net1 = slim.conv2d(net, 2*num_anchors, [1, 1], scope='prob_object')
-            print(net1)
-            net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox')
-            print(net2)
-        net = slim.flatten(net)
+            net = slim.max_pool2d(net, [2, 2], scope = 'pool5')
+            #net3 = slim.conv2d(net, 2*num_anchors, [1, 1], scope='prob_object')
+            #print(net3)
+            #net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox')
+            #print(net2)
+        net2 = slim.flatten(net)
         w_init = tf.contrib.layers.xavier_initializer()
         w_reg = slim.l2_regularizer(0.0005)
-        net = slim.fully_connected(net, 4096,
+        net2 = slim.fully_connected(net2, 4096,
                                    weights_initializer = w_init,
                                    weights_regularizer = w_reg,
                                    scope = 'fc6')
-        net = slim.dropout(net, keep_prob = 0.5, is_training = is_training)
-        net = slim.fully_connected(net, 4096,
+        net2 = slim.dropout(net2, keep_prob = 0.5, is_training = is_training)
+        net2 = slim.fully_connected(net2, 4096,
                                    weights_initializer = w_init,
                                    weights_regularizer = w_reg,
                                    scope = 'fc7')
-        net = slim.dropout(net, keep_prob = 0.5, is_training = is_training)
-        net = slim.fully_connected(net, 1000,
+        net2 = slim.dropout(net2, keep_prob = 0.5, is_training = is_training)
+        net2 = slim.fully_connected(net2, 1000,
                                    weights_initializer = w_init,
                                    weights_regularizer = w_reg,
                                    scope = 'fc8')
-        print("SHAPE!!!!", net)
-    return net
+        #print("SHAPE!!!!", net2)
+    return net, net2
+
+
+def rp_network(vgg_conv, num_anchors, is_training = False):
+    initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
+    rpn_cls_score = slim.conv2d(vgg_conv, 2*num_anchors, [1, 1], weights_initializer = initializer)
+    rpn_cls_score_reshape = _reshape_layer(rpn_cls_score, 2, "rpn_cls_score_reshape")
+    rpn_cls_prob_reshape  = _softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
+
+    rpn_cls_pred = tf.argmax(tf.reshape(rpn_cls_score_reshape, [-1, 2]), axis = 1, name= "rpn_cls_pred")
+    rpn_cls_prob = _reshape_layer(rpn_cls_prob_reshape, num_anchors*2, "rpn_cls_prob")
+    print("RESHAPE!!!!!!!", rpn_cls_score)
+    print("RESHAPE!!!!!!!", rpn_cls_score_reshape)
+
+def _reshape_layer(bottom, num_dim, name):
+    input_shape = tf.shape(bottom)
+    with tf.variable_scope(name) as scope:
+        # change the channel to the caffe format
+        to_caffe = tf.transpose(bottom, [0, 3, 1, 2])
+        # then force it to have channel 2
+        reshaped = tf.reshape(to_caffe,
+                            tf.concat(axis=0, values=[[1, num_dim, -1], [input_shape[2]]]))
+        reshaped_2 = KL.Reshape(-1, )(to_caffe)
+        #print("TO_CAFFE!!!!!", reshaped)
+        # then swap the channel back
+        to_tf = tf.transpose(reshaped, [0, 2, 3, 1])
+    return to_tf
+
+def _softmax_layer(bottom, name):
+    if name.startswith('rpn_cls_prob_reshape'):
+        input_shape = tf.shape(bottom)
+        bottom_reshaped = tf.reshape(bottom, [-1, input_shape[-1]])
+        reshaped_score = tf.nn.softmax(bottom_reshaped, name=name)
+        return tf.reshape(reshaped_score, input_shape)
+    return tf.nn.softmax(bottom, name=name)
 
 def losses(logits, labels):
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
@@ -78,11 +117,13 @@ num_anchors = num_scales*num_ratios
 
 print "good till here1"
 
-
+flag = True
 
 tf.reset_default_graph()
 im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
-logits = netvgg(im_placeholder, num_anchors, is_training=False)
+vgg_transfer, logits = netvgg_conv(im_placeholder, is_training=False)
+if flag == True:
+    new_net = rp_network(vgg_transfer, num_anchors, is_training=False)
 prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
 print "good till here2"
