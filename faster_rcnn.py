@@ -60,14 +60,52 @@ def netvgg_conv(inputs, is_training = True):
 
 def rp_network(vgg_conv, num_anchors, is_training = False):
     initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
-    rpn_cls_score = slim.conv2d(vgg_conv, 2*num_anchors, [1, 1], weights_initializer = initializer)
+
+    rpn_cls_score = slim.conv2d(vgg_conv, 2*num_anchors, [1, 1],
+                                trainable= is_training, weights_initializer = initializer,
+                                padding='VALID', activation_fn = None, scope='rpn_cls_score')
     rpn_cls_score_reshape = _reshape_layer(rpn_cls_score, 2, "rpn_cls_score_reshape")
     rpn_cls_prob_reshape  = _softmax_layer(rpn_cls_score_reshape, "rpn_cls_prob_reshape")
 
     rpn_cls_pred = tf.argmax(tf.reshape(rpn_cls_score_reshape, [-1, 2]), axis = 1, name= "rpn_cls_pred")
     rpn_cls_prob = _reshape_layer(rpn_cls_prob_reshape, num_anchors*2, "rpn_cls_prob")
+    rpn_bbox_pred = slim.conv2d(vgg_conv, 4*num_anchors, [1, 1],
+                                trainable= is_training, weights_initializer=initializer,
+                                padding='VALID', activation_fn = None, scope='rpn_bbox_pred')
+    if is_training:
+        rois, roi_scores = _proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois", is_training)
+    else:
     print("RESHAPE!!!!!!!", rpn_cls_score)
     print("RESHAPE!!!!!!!", rpn_cls_score_reshape)
+    return(rpn_cls_score_reshape)
+
+def _proposal_layer(rpn_cls_prob, rpn_bbox_pred, name, is_training):
+    RPN_NMS_THRESH = 0.7
+    post_nms_topN = 2000 if is_training else 300
+
+    with tf.variable_scope(name) as scope:
+        USE_E2E_TF = True
+        if USE_E2E_TF == True:
+            rois, rpn_scores = proposal_layer_tf(
+                rpn_cls_prob,
+                rpn_bbox_pred,
+                self._im_info,
+                self._mode,
+                self._feat_stride,
+                self._anchors,
+                self._num_anchors
+                )
+
+        else:
+            rois, rpn_scores = tf.py_func(proposal_layer,
+                [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
+                self._feat_stride, self._anchors, self._num_anchors],
+                [tf.float32, tf.float32], name="proposal")
+
+            rois.set_shape([None, 5])
+            rpn_scores.set_shape([None, 1])
+
+    return rois, rpn_scores
 
 def _reshape_layer(bottom, num_dim, name):
     input_shape = tf.shape(bottom)
@@ -77,8 +115,14 @@ def _reshape_layer(bottom, num_dim, name):
         # then force it to have channel 2
         reshaped = tf.reshape(to_caffe,
                             tf.concat(axis=0, values=[[1, num_dim, -1], [input_shape[2]]]))
-        reshaped_2 = KL.Reshape(-1, )(to_caffe)
-        #print("TO_CAFFE!!!!!", reshaped)
+        print("inputshape", input_shape[2])
+        print("dafk", [1, num_dim, -1], input_shape)
+        print("dafack is going on here", tf.concat(axis=0, values=[[1, num_dim, -1], [input_shape[2]]]))
+        #reshaped_2 = KL.Reshape([-1,])(to_caffe)
+        reshaped_2 = KL.Reshape([1, 2, -1, 7])(to_caffe)
+        print("to_caffe!!!!!", to_caffe)
+        print("reshaped!!!!!", reshaped)
+        print("reshaped_2!!!!!", reshaped_2)
         # then swap the channel back
         to_tf = tf.transpose(reshaped, [0, 2, 3, 1])
     return to_tf
@@ -176,8 +220,14 @@ with tf.Session() as sess:
         sess.run(assign_op, feed_dict_init)
         img = Image.open('data/cat1.jpg')
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
+        rsh = np.reshape(img, [1, img.shape[0], img.shape[1], img.shape[2]])
+        cnct = np.concatenate((rsh, rsh), axis=0)
+        print(img.shape, rsh.shape, cnct.shape)
+        print("expand", np.expand_dims(img, axis=0).shape)
+#        new_net, pred_lbl, proba = sess.run([new_net, predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
+        new_net, pred_lbl, proba = sess.run([new_net, predicted_labels, prediction], feed_dict={im_placeholder:rsh})
         print(pred_lbl)
+        print(new_net.shape)
         #for k in init_weights.files:
             #print(k)
 
