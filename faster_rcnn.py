@@ -58,7 +58,7 @@ def netvgg_conv(inputs, is_training = True):
     return net, net2
 
 
-def rp_network(vgg_conv, num_anchors, is_training = False):
+def rp_network(vgg_conv, , is_training = False):
     initializer = tf.truncated_normal_initializer(mean=0.0, stddev=0.01)
 
     rpn_cls_score = slim.conv2d(vgg_conv, 2*num_anchors, [1, 1],
@@ -73,39 +73,69 @@ def rp_network(vgg_conv, num_anchors, is_training = False):
                                 trainable= is_training, weights_initializer=initializer,
                                 padding='VALID', activation_fn = None, scope='rpn_bbox_pred')
     if is_training:
-        rois, roi_scores = _proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois", is_training)
+        rois, roi_scores = _proposal_layer(rpn_cls_prob, rpn_bbox_pred, "rois", is_training,
+                                           num_anchors, )
     else:
     print("RESHAPE!!!!!!!", rpn_cls_score)
     print("RESHAPE!!!!!!!", rpn_cls_score_reshape)
     return(rpn_cls_score_reshape)
 
-def _proposal_layer(rpn_cls_prob, rpn_bbox_pred, name, is_training):
+def _proposal_layer(rpn_cls_prob, rpn_bbox_pred, name, is_training, num_anchors):
     RPN_NMS_THRESH = 0.7
     post_nms_topN = 2000 if is_training else 300
-
+    USE_E2E_TF = True
     with tf.variable_scope(name) as scope:
-        USE_E2E_TF = True
+
         if USE_E2E_TF == True:
             rois, rpn_scores = proposal_layer_tf(
                 rpn_cls_prob,
                 rpn_bbox_pred,
-                self._im_info,
-                self._mode,
-                self._feat_stride,
-                self._anchors,
-                self._num_anchors
+                _im_info,
+                is_training,
+                _feat_stride = [16, ],
+                _anchors,
+                num_anchors
                 )
 
-        else:
-            rois, rpn_scores = tf.py_func(proposal_layer,
-                [rpn_cls_prob, rpn_bbox_pred, self._im_info, self._mode,
-                self._feat_stride, self._anchors, self._num_anchors],
-                [tf.float32, tf.float32], name="proposal")
+        #else:
+        #    rois, rpn_scores = tf.py_func(proposal_layer,
+        #        [rpn_cls_prob, rpn_bbox_pred, _im_info, _mode,
+        #        _feat_stride, _anchors, _num_anchors],
+        #        [tf.float32, tf.float32], name="proposal")
 
-            rois.set_shape([None, 5])
-            rpn_scores.set_shape([None, 1])
+        #    rois.set_shape([None, 5])
+        #    rpn_scores.set_shape([None, 1])
 
     return rois, rpn_scores
+
+
+
+def proposal_layer_tf(rpn_cls_prob, rpn_bbox_pred, im_info, cfg_key, _feat_stride, anchors, num_anchors):
+
+    pre_nms_topN = cfg[cfg_key].RPN_PRE_NMS_TOP_N
+    post_nms_topN = cfg[cfg_key].RPN_POST_NMS_TOP_N
+    nms_thresh = cfg[cfg_key].RPN_NMS_THRESH
+
+    # Get the scores and bounding boxes
+    scores = rpn_cls_prob[:, :, :, num_anchors:]
+    scores = tf.reshape(scores, shape=(-1,))
+    rpn_bbox_pred = tf.reshape(rpn_bbox_pred, shape=(-1, 4))
+
+    proposals = bbox_transform_inv_tf(anchors, rpn_bbox_pred)
+    proposals = clip_boxes_tf(proposals, im_info[:2])
+
+    # Non-maximal suppression
+    indices = tf.image.non_max_suppression(proposals, scores, max_output_size=post_nms_topN, iou_threshold=nms_thresh)
+
+    boxes = tf.gather(proposals, indices)
+    boxes = tf.to_float(boxes)
+    scores = tf.gather(scores, indices)
+    scores = tf.reshape(scores, shape=(-1, 1))
+
+    # Only support single image as input
+    batch_inds = tf.zeros((tf.shape(indices)[0], 1), dtype=tf.float32)
+    blob = tf.concat([batch_inds, boxes], 1)
+
 
 def _reshape_layer(bottom, num_dim, name):
     input_shape = tf.shape(bottom)
