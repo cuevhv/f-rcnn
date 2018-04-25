@@ -10,11 +10,14 @@ import tensorflow as tf
 from tensorflow.contrib.slim.nets import vgg
 slim = tf.contrib.slim
 import pathlib
+import keras as K
+from keras.layers.core import Activation, Reshape
+
 
 def netvgg(inputs, is_training = True):
     inputs = tf.cast(inputs, tf.float32)
     inputs = ((inputs / 255.0) -0.5)*2
-
+    num_anchors = 9
     with tf.variable_scope("vgg_16"):
         with slim.arg_scope(vgg.vgg_arg_scope()):
             net = inputs
@@ -27,9 +30,19 @@ def netvgg(inputs, is_training = True):
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv4')
             net = slim.max_pool2d(net, [2, 2], scope = 'pool4')
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
+
+            net_cnn = net
+            net1 = slim.conv2d(net, 2*num_anchors, [1, 1], scope= "prob")
+
+            net1 = Reshape((-1, 2), input_shape=(net1.shape[1], net1.shape[2], net1.shape[3]))(net1)
+            #net1 = tf.reshape(net1, [0, -1, -1, 2])
+            net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox')
+            net2 = Reshape((-1, 4), input_shape=(net2.shape[1], net2.shape[2], net2.shape[3]))(net2)
+
             net = slim.max_pool2d(net, [2, 2], scope = 'pool5')
 
         net = slim.flatten(net)
+
         w_init = tf.contrib.layers.xavier_initializer()
         w_reg = slim.l2_regularizer(0.0005)
         net = slim.fully_connected(net, 4096,
@@ -47,10 +60,12 @@ def netvgg(inputs, is_training = True):
                                    weights_regularizer = w_reg,
                                    scope = 'fc8')
         print("SHAPE!!!!", net)
-    return net
-
-
-
+    return net_cnn, net2, net1, net
+#########################
+def gen_anchor_bx(bbx_size, bbx_ratio):
+bbx_size = [8, 16, 32]
+bbx_ratio = [0.5, 1, 1.5]
+num_anchors = len(bbx_size)*len(bbx_ratio)
 
 
 
@@ -67,19 +82,16 @@ def optimize(losses):
                 #var_list=slim.get_model_variables("finetune"))
     return train_op
 
-#################################################
-
-
-
 tf.reset_default_graph()
 im_width=224
 im_height=224
 print "good till here1"
 
 im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
-logits = netvgg(im_placeholder, is_training=False)
+net_cnn, net2, net1, logits = netvgg(im_placeholder, is_training=False)
 prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
+print "Net1 ", net1.shape, "Net2", net2.shape
 print "good till here2"
 
 #vgg
@@ -131,39 +143,10 @@ with tf.Session() as sess:
         sess.run(assign_op, feed_dict_init)
         img = Image.open('data/cat1.jpg')
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
+        net_cnn_s, net2_s, net1_s, pred_lbl, proba = sess.run([net_cnn, net2, net1,
+                                                               predicted_labels, prediction],
+                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
         print(pred_lbl)
-
-        img2 = Image.open('data/dog4.jpg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
-
-        img2 = Image.open('data/dog1.jpg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
-
-        img2 = Image.open('data/dog2.jpg')
-        img2 = np.array(img2.resize((im_width,im_height), Image.ANTIALIAS))
-        pred_lbl, proba = sess.run([predicted_labels, prediction], feed_dict={im_placeholder:np.expand_dims(img2, axis=0)})
-        print(pred_lbl, proba[0][pred_lbl])
-        #for k in init_weights.files:
-            #print(k)
-
-        #print init_weights['conv1_1_W']
-        #assign_op, feed_dict_init = slim.assign_from_values({'conv1/weights' : init_weights['conv1_w'],})
-        #sess.run(assign_op, feed_dict_init)
-#with tf.Session() as sess:
-#    print "good till here3"#
-#    saver = tf.train.Saver()
-#    print("SESS!!!!!!!!!!!!!!!!!!!!!!!!!!!", sess)
-#    saver.restore(sess, './vgg_16.ckpt')
-    #sess.run(tf.local_variables_initializer())
-    #sess.run(tf.global_variables_initializer())
-
-    #img = Image.open('cat02.jpg')
-    #print("shape!!!!!", im.size)
-    #img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
-    #prob = sess.run(prediction, feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
-    #print(prob[0][1])
+        print(net_cnn_s.shape)
+        print(net1_s.shape)
+        print(net2_s.shape)
