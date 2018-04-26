@@ -13,7 +13,7 @@ h = 4;
 rectangle('Position',[x-w/2 y-h/2 w h], 'EdgeColor', 'b')
 
 
-%BBox_predict
+%BBox_predict/achors
 xp = 4;
 yp = 4;
 wp = 6;
