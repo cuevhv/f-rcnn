@@ -4,6 +4,8 @@ https://medium.com/@smallfishbigsea/faster-r-cnn-explained-864d4fb7e3f8
 https://tryolabs.com/blog/2018/01/18/faster-r-cnn-down-the-rabbit-hole-of-modern-object-detection/
 http://chainercv.readthedocs.io/en/stable/reference/links/faster_rcnn.html
 https://stats.stackexchange.com/questions/265875/anchoring-faster-rcnn?utm_medium=organic&utm_source=google_rich_qa&utm_campaign=google_rich_qa
+https://huangying-zhan.github.io/2016/09/22/detection-faster-rcnn.html
+
 
 Maybe not:
 https://github.com/rbgirshick/py-faster-rcnn/issues/184
