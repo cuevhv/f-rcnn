@@ -49,13 +49,12 @@ t_hp = log(hp/hp);
 t_h = log(h/hp);
 
 t_vxp = (fxp-fxp)/wp;
-t_vx = (fx-fxp)/wp;
-t_vyp = (fyp-fyp)/hp;
-t_vy = (fy-fyp)/hp;
+t_vx = (vx-vxp)/wp;
+t_vyp = (pfy-pfy)/hp;
+t_vy = (vy-pfy)/hp;
 
-pred_t = [t_xp, t_yp, t_wp, t_hp, t_vxp, t_vyp];
+pred_t = [t_xp, t_yp, t_wp, t_hp, pfx, pfy];
 %pred_t = [0.52, 0.32, 0.2, 0.5];
-pause
 %%
 for k = 1
     ls = [pred_t(1)-t_x, pred_t(2)-t_y, pred_t(3)-t_w, pred_t(4)-t_h, pred_t(5)-t_vx, pred_t(6)-t_vy];
@@ -75,30 +74,28 @@ for k = 1
     pred_y = pred_t(2)*hp+yp;
     pred_w = exp(pred_t(3))*wp;
     pred_h = exp(pred_t(4))*hp;
-    
-    pred_vx = pred_t(5)*wp+fxp;
-    pred_vy = pred_t(6)*hp+fyp;
-    [pred_x, pred_y, pred_w, pred_h pred_vx, pred_vy]
+    pred_vx = pred_t(5)*wp+vxp;
+    pred_vy = pred_t(6)*hp+vxp;
+    [pred_x, pred_y, pred_w, pred_h pred_t(5), pred_t(6)]
     rectangle('Position',[pred_x-pred_w/2 pred_y-pred_h/2 pred_w pred_h], 'EdgeColor', 'r')
-    line([pred_x, pred_vx + pred_x], [pred_y, pred_vy + pred_y], 'Color', 'r')
+    
 end
 
-%% This works
-
-% dif = 0;
-% for k = 1:5
-%     ls = t_xp-t_x
-%     if abs(ls) < 1
-%         dif = 2*ls;
-%     else
-%         if ls >0
-%             dif = ls/abs(ls);
-%         else
-%             dif = 0;
-%         end
-%     end
-%     t_xp = t_xp - 0.1*dif
-%     t_x = t_x
-%     predicted_x = t_xp*wp+xp
-% end
+%%
+dif = 0;
+for k = 1:5
+    ls = t_xp-t_x
+    if abs(ls) < 1
+        dif = 2*ls;
+    else
+        if ls >0
+            dif = ls/abs(ls);
+        else
+            dif = 0;
+        end
+    end
+    t_xp = t_xp - 0.1*dif
+    t_x = t_x
+    predicted_x = t_xp*wp+xp
+end
 
