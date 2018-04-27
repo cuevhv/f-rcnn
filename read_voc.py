@@ -95,9 +95,30 @@ def load_data_full():
         #print ban_list
         return word_list
 
+    def finding_VOC_path():
+        for root, dirs, files in os.walk('/home'):
+            for name in dirs:
+                if (name.endswith('VOC2007')):
+                    #print os.path.join(root, 'VOC2007')
+                    for rt, drs, fls in os.walk(os.path.join(root, 'VOC2007')):
+                        #print drs
+                        count = 0
+                        for nam in drs:
+                            if (nam.endswith('Annotations')):
+                                count += 1
+                            if (nam.endswith('ImageSets')):
+                                count += 1
+                            if (nam.endswith('JPEGImages')):
+                                count += 1
+                        if count == 3:
+                            print os.path.join(root, 'VOC2007')
+                            return os.path.join(root, 'VOC2007/')
+                            print count
+        return 'NO_PATH'
     """###############################PROGRAM STARTS ######################################"""
-
-    root_dir = '/home/hanz/Documents/2018/datasets/VOCdevkit/VOC2007/'
+    string_path = finding_VOC_path()
+    root_dir = string_path
+    #root_dir = '/home/hanz/Documents/2018/datasets/VOCdevkit/VOC2007/'
     pth = pathlib.Path(root_dir)
     assert ((pathlib.Path(root_dir)).is_dir()), "ERROR: Please input a correct root_dir"
     print "path found"
