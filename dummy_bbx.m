@@ -55,7 +55,7 @@ t_vy = (fy-fyp)/hp;
 
 pred_t = [t_xp, t_yp, t_wp, t_hp, t_vxp, t_vyp];
 %pred_t = [0.52, 0.32, 0.2, 0.5];
-pause
+pause(2)
 %%
 for k = 1
     ls = [pred_t(1)-t_x, pred_t(2)-t_y, pred_t(3)-t_w, pred_t(4)-t_h, pred_t(5)-t_vx, pred_t(6)-t_vy];
@@ -79,8 +79,12 @@ for k = 1
     pred_vx = pred_t(5)*wp+fxp;
     pred_vy = pred_t(6)*hp+fyp;
     [pred_x, pred_y, pred_w, pred_h pred_vx, pred_vy]
-    rectangle('Position',[pred_x-pred_w/2 pred_y-pred_h/2 pred_w pred_h], 'EdgeColor', 'r')
-    line([pred_x, pred_vx + pred_x], [pred_y, pred_vy + pred_y], 'Color', 'r')
+    h1 = rectangle('Position',[pred_x-pred_w/2 pred_y-pred_h/2 pred_w pred_h], 'EdgeColor', 'r');
+    h2 = line([pred_x, pred_vx + pred_x], [pred_y, pred_vy + pred_y], 'Color', 'r');
+    pause(0.3)
+    delete(h1)
+    delete(h2)
+    
 end
 
 %% This works
