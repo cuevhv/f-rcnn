@@ -1,10 +1,8 @@
 'Main/car_train'
-''' Modified from https://github.com/mprat/pascal-voc-python'''
+''' LOAD VOC FILE - NO LIBRARIES, NO INSTALL, NO TRICKS '''
 import os
 import pandas as pd
 from bs4 import BeautifulSoup
-import voc_utils
-from more_itertools import unique_everseen
 import pathlib
 import sys
 
