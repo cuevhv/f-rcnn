@@ -13,6 +13,8 @@ import pathlib
 import keras as K
 from keras.layers.core import Activation, Reshape
 
+import read_voc
+
 
 def netvgg(inputs, is_training = True):
     inputs = tf.cast(inputs, tf.float32)
@@ -63,9 +65,9 @@ def netvgg(inputs, is_training = True):
     return net_cnn, net2, net1, net
 #########################
 def gen_anchor_bx(bbx_size, bbx_ratio):
-bbx_size = [8, 16, 32]
-bbx_ratio = [0.5, 1, 1.5]
-num_anchors = len(bbx_size)*len(bbx_ratio)
+    bbx_size = [8, 16, 32]
+    bbx_ratio = [0.5, 1, 1.5]
+    num_anchors = len(bbx_size)*len(bbx_ratio)
 
 
 
