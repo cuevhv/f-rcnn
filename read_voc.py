@@ -155,6 +155,7 @@ def load_data_full(class_name, shw_example=True):
     JPEG_images = not_rep_char(df['fname'], img_dir)
     #print JPEG_images ###RETURN list of the desired images
     Annotation_images = not_rep_char(df['fname'], ann_dir)
+    #print Annotation_images ###RETURN list of the desired bbx sizes of the images
     return JPEG_images, Annotation_images, df
 
     #for cat in image_sets:

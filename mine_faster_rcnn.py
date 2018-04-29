@@ -14,7 +14,8 @@ import keras as K
 from keras.layers.core import Activation, Reshape
 
 import read_voc
-
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 def netvgg(inputs, is_training = True):
     inputs = tf.cast(inputs, tf.float32)
@@ -64,12 +65,31 @@ def netvgg(inputs, is_training = True):
         print("SHAPE!!!!", net)
     return net_cnn, net2, net1, net
 #########################
-def gen_anchor_bx(bbx_size, bbx_ratio):
+def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
     bbx_size = [8, 16, 32]
     bbx_ratio = [0.5, 1, 1.5]
     num_anchors = len(bbx_size)*len(bbx_ratio)
+    centres = [[i, j] for i in range(8, im_width, 16) for j in range(8, im_height, 16)]
+    return centres
 
-
+def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
+    rec_patches = []
+    for bbx in bbxs_sizes_img:
+        #print "bbx", bbx
+        #print sze_of_img[0]/float(im_width)
+        #print ((int(bbx[0]*im_width/float(sze_of_img[0])),
+        #                                  int(bbx[1]*im_height/float(sze_of_img[1]))),
+        #                                 int((bbx[2]-bbx[0])*im_width/float(sze_of_img[0])),
+        #                                 int((bbx[3]-bbx[1])*im_height/float(sze_of_img[1])))
+        colors = np.random.random((1, 3))
+        fig1.add_patch(patches.Rectangle((int(bbx[0]*im_width/float(sze_of_img[0])),
+                                          int(bbx[1]*im_height/float(sze_of_img[1]))),
+                                         int((bbx[2]-bbx[0])*im_width/float(sze_of_img[0])),
+                                         int((bbx[3]-bbx[1])*im_height/float(sze_of_img[1])),
+                                             linewidth=3,
+                                             edgecolor=colors[0],
+                                             facecolor='none'))
+    # Add the patch to the Axes
 
 def losses(logits, labels):
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
@@ -88,7 +108,18 @@ tf.reset_default_graph()
 im_width=224
 im_height=224
 print "good till here1"
+bbx_size = [8, 16, 32]
+bbx_ratio = [0.5, 1, 1.5]
+centres = gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height)
+####Loading data######
+type_data = 'person'
+shw_example = False
+JPEG_images, Annotation_images, df = read_voc.load_data_full(type_data, shw_example)
+bbxs_sizes = read_voc.getting_all_bbx(Annotation_images)
 
+
+
+print "centres", centres
 im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
 net_cnn, net2, net1, logits = netvgg(im_placeholder, is_training=False)
 prediction = tf.nn.softmax(logits)
@@ -143,8 +174,16 @@ with tf.Session() as sess:
                                                              })
         #print(assign_op, feed_dict_init)
         sess.run(assign_op, feed_dict_init)
-        img = Image.open('data/cat1.jpg')
+        #img = Image.open('data/cat1.jpg')
+        img = Image.open(JPEG_images[1])
+        sze_of_img = img.size
+
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
+        _,fig1 = plt.subplots(1)
+        fig1.imshow(img)
+        draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height)
+        plt.show()
+
         net_cnn_s, net2_s, net1_s, pred_lbl, proba = sess.run([net_cnn, net2, net1,
                                                                predicted_labels, prediction],
                                                       feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
