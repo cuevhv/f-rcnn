@@ -66,16 +66,52 @@ def netvgg(inputs, is_training = True):
     return net_cnn, net2, net1, net
 #########################
 def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
-    bbx_size = [8, 16, 32]
-    bbx_ratio = [1, 0.5, 2]
+    #bbx_size = [8, 16, 32]
+    #bbx_ratio = [1, 0.5, 2]
     num_anchors = len(bbx_size)*len(bbx_ratio)
-    centres = [[i, j, m*1/k, m*k] for i in range(8, im_width, 16) for j in range(8, im_height, 16)\
-                for m in bbx_size for k in bbx_ratio]
+##    centres = [[i, j, m*1/k, m*k] for i in range(8, im_width, 16) for j in range(8, im_height, 16)\
+##                for m in bbx_size for k in bbx_ratio]
+    centres = [] # [cx, cy, w, h]
+    centres_mmxy = [] # [xmin, ymin, xmax, ymax]
+    for i in range(8, im_width, 16):
+        for j in range(8, im_height, 16):
+            for m in bbx_size:
+                for k in bbx_ratio:
+                    centres.append([j, i, int(m*1/k), int(m*k)])
+                    centres_mmxy.append([int(j-m*1/(2*k)+1), int(i-m*k/2+1), int(j+m*1/(2*k)),
+                    int(i+m*k/2)])
+                    #for :
+                    #
+    return centres, centres_mmxy
 
-    return centres
+def get_training_data(centres_mmxy, target_data):
+    new_output = []
+    count = [0, 0, 0]
+    for anchor in centres_mmxy:
+        mrk = 0
+        is_t = 0
+        for target in target_data:
+            iou = read_voc.bb_intersection_over_union(anchor, target)
+            if iou > 0.7:
+                is_t = 1
+                count[0] = 1+count[0]
+                new_output.append([1, 0])
+                break
+            elif iou < 0.3:
+                mrk += 1
+        if (mrk == len(target_data)) and (is_t == 0):
+            new_output.append([0, 1])
+            count[1] = 1+count[1]
+        elif is_t == 0:
+            new_output.append([0, 0])
+            count[2] = 1+count[2]
+    print "letsee", len(new_output), new_output, count
 
-def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
+def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = False):
     rec_patches = []
+    if is_anchor:
+        im_width = sze_of_img[0]
+        im_height = sze_of_img[1]
     for bbx in bbxs_sizes_img:
         #print "bbx", bbx
         #print sze_of_img[0]/float(im_width)
@@ -93,6 +129,15 @@ def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
                                              facecolor='none'))
     # Add the patch to the Axes
 
+def resizing_targets(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
+    #print "bbx", bbxs_sizes_img, len(bbxs_sizes_img)
+    for n in range(len(bbxs_sizes_img)):
+        #print "nnn", bbxs_sizes_img[n]
+        bbxs_sizes_img[n][0] = int(bbxs_sizes_img[n][0]*im_width/float(sze_of_img[0]))
+        bbxs_sizes_img[n][1] = int(bbxs_sizes_img[n][1]*im_height/float(sze_of_img[1]))
+        bbxs_sizes_img[n][2] = int(bbxs_sizes_img[n][2]*im_width/float(sze_of_img[0]))
+        bbxs_sizes_img[n][3] = int(bbxs_sizes_img[n][3]*im_height/float(sze_of_img[1]))
+    return bbxs_sizes_img
 def losses(logits, labels):
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
     return loss
@@ -110,19 +155,18 @@ tf.reset_default_graph()
 im_width = 224
 im_height = 224
 print "good till here1"
-bbx_size = [8, 16, 32]
-bbx_ratio = [0.5, 1, 2]
-centres = gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height)
-print 'centres', centres
+bbx_size = [8, 64, 128]#[8, 16, 32]
+bbx_ratio = [1, 1/1.5, 1.5]#[1, 0.5, 2]
+centres, centres_mmxy = gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height)
+print 'centres', len(centres)
+print 'centres_mmxy', len(centres_mmxy)
 ####Loading data######
 type_data = 'person'
 shw_example = False
 JPEG_images, Annotation_images, df = read_voc.load_data_full(type_data, shw_example)
 bbxs_sizes = read_voc.getting_all_bbx(Annotation_images)
+#print "bbxs_sizes", bbxs_sizes
 
-
-
-print "centres", centres
 im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
 net_cnn, net2, net1, logits = netvgg(im_placeholder, is_training=False)
 prediction = tf.nn.softmax(logits)
@@ -184,7 +228,11 @@ with tf.Session() as sess:
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         _,fig1 = plt.subplots(1)
         fig1.imshow(img)
-        draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height)
+        bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height)
+        training_data = get_training_data(centres_mmxy, bbxs_sizes[1])
+        draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
+        #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, False)
+        #draw_bbx(centres_mmxy[19*5:19*5+10], fig1, sze_of_img, im_width, im_height, True)
         plt.show()
 
         net_cnn_s, net2_s, net1_s, pred_lbl, proba = sess.run([net_cnn, net2, net1,
