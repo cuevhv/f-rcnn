@@ -67,9 +67,11 @@ def netvgg(inputs, is_training = True):
 #########################
 def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
     bbx_size = [8, 16, 32]
-    bbx_ratio = [0.5, 1, 1.5]
+    bbx_ratio = [1, 0.5, 2]
     num_anchors = len(bbx_size)*len(bbx_ratio)
-    centres = [[i, j] for i in range(8, im_width, 16) for j in range(8, im_height, 16)]
+    centres = [[i, j, m*1/k, m*k] for i in range(8, im_width, 16) for j in range(8, im_height, 16)\
+                for m in bbx_size for k in bbx_ratio]
+
     return centres
 
 def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
@@ -105,12 +107,13 @@ def optimize(losses):
     return train_op
 
 tf.reset_default_graph()
-im_width=224
-im_height=224
+im_width = 224
+im_height = 224
 print "good till here1"
 bbx_size = [8, 16, 32]
-bbx_ratio = [0.5, 1, 1.5]
+bbx_ratio = [0.5, 1, 2]
 centres = gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height)
+print 'centres', centres
 ####Loading data######
 type_data = 'person'
 shw_example = False
