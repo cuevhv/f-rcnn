@@ -35,7 +35,7 @@ def netvgg(inputs, is_training = True):
             net = slim.repeat(net, 3, slim.conv2d, 512, [3, 3], scope='conv5')
 
             net_cnn = net
-            net1 = slim.conv2d(net, 2*num_anchors, [1, 1], scope= "prob")
+            net1 = slim.conv2d(net, 2*num_anchors, [1, 1], scope= "prob", activation_fn=tf.nn.sigmoid)
 
             net1 = Reshape((-1, 2), input_shape=(net1.shape[1], net1.shape[2], net1.shape[3]))(net1)
             #net1 = tf.reshape(net1, [0, -1, -1, 2])
@@ -105,7 +105,8 @@ def get_training_data(centres_mmxy, target_data):
         elif is_t == 0:
             new_output.append([0, 0])
             count[2] = 1+count[2]
-    print "letsee", len(new_output), new_output, count
+    print "letsee", len(new_output), count
+    return new_output
 
 def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = False):
     rec_patches = []
@@ -129,7 +130,7 @@ def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = 
                                              facecolor='none'))
     # Add the patch to the Axes
 
-def resizing_targets(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height):
+def resizing_targets(bbxs_sizes_img, sze_of_img, im_width, im_height):
     #print "bbx", bbxs_sizes_img, len(bbxs_sizes_img)
     for n in range(len(bbxs_sizes_img)):
         #print "nnn", bbxs_sizes_img[n]
@@ -144,9 +145,11 @@ def losses(logits, labels):
 
 def optimize(losses):
     global_step = tf.contrib.framework.get_or_create_global_step()
+    lr = 0.1
     learning_rate = tf.train.exponential_decay(lr, global_step,
-                                             num_iter*decay_per, decay_rate, staircase=True)
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+                                             100000, 0.96, staircase=True)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
+    #optimizer = tf.train.GradientDescentOptimizer(learning_rate)
     train_op = optimizer.minimize(losses, global_step=global_step)#,
                 #var_list=slim.get_model_variables("finetune"))
     return train_op
@@ -167,8 +170,21 @@ JPEG_images, Annotation_images, df = read_voc.load_data_full(type_data, shw_exam
 bbxs_sizes = read_voc.getting_all_bbx(Annotation_images)
 #print "bbxs_sizes", bbxs_sizes
 
-im_placeholder = tf.placeholder(tf.uint8, [None, im_height, im_width, 3])
+im_placeholder = tf.placeholder(tf.float32, [None, im_height, im_width, 3])
+y_ = tf.placeholder(tf.float32, [None, 9*14*14, 2])
+
 net_cnn, net2, net1, logits = netvgg(im_placeholder, is_training=False)
+sft_max_w_logit = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits = net1)
+cross_entropy = tf.reduce_mean(sft_max_w_logit)
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+#train_step = optimize(cross_entropy)
+#correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
+argmax_1 = tf.argmax(net1,2)
+argmax_2 = tf.argmax(y_,2)
+correct_prediction = tf.equal(argmax_1, argmax_2)
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+
 prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
 print "Net1 ", net1.shape, "Net2", net2.shape
@@ -224,21 +240,40 @@ with tf.Session() as sess:
         #img = Image.open('data/cat1.jpg')
         img = Image.open(JPEG_images[1])
         sze_of_img = img.size
+        show_img_ = False
 
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
-        _,fig1 = plt.subplots(1)
-        fig1.imshow(img)
-        bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height)
+        if show_img_:
+            _,fig1 = plt.subplots(1)
+            fig1.imshow(img)
+        bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], sze_of_img, im_width, im_height)
         training_data = get_training_data(centres_mmxy, bbxs_sizes[1])
-        draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
+        y_hat = np.array(training_data)
+        print np.expand_dims(y_hat, axis=0).shape, y_hat.shape
+        #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
         #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, False)
         #draw_bbx(centres_mmxy[19*5:19*5+10], fig1, sze_of_img, im_width, im_height, True)
         plt.show()
-
-        net_cnn_s, net2_s, net1_s, pred_lbl, proba = sess.run([net_cnn, net2, net1,
-                                                               predicted_labels, prediction],
-                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0)})
+        for i in range(1000):
+            #train_step.run(feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0)})
+            argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([argmax_1, argmax_2, train_step, net_cnn, net2, net1,
+                                                               predicted_labels, prediction, cross_entropy, sft_max_w_logit],
+                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0)})
+            #print sft_max_w_logit_s.shape
+            #print net1_s[0][1]
+            if i % 20 == 0:
+                print(i, x_entropy)
+                print("argmax1", argmax_1s, net1_s[0][1])
+                print("argmax2", argmax_2s, net1_s[0][1])
+                tr_acc = accuracy.eval(feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0)})
+                print('tr_acc', tr_acc)
         print(pred_lbl)
         print(net_cnn_s.shape)
         print(net1_s.shape)
         print(net2_s.shape)
+        print(x_entropy)
+        print("res", net1_s)
+        print("pred", y_hat)
+        m1 = np.argmax(net1_s, axis = -1)
+        m2 = np.argmax(y_hat, axis = -1)
+        print(np.sum(np.equal(m1, m2)))/1764.0
