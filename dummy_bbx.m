@@ -57,7 +57,7 @@ pred_t = [t_xp, t_yp, t_wp, t_hp, t_vxp, t_vyp];
 %pred_t = [0.52, 0.32, 0.2, 0.5];
 pause(2)
 %%
-for k = 1
+for k = 1:200
     ls = [pred_t(1)-t_x, pred_t(2)-t_y, pred_t(3)-t_w, pred_t(4)-t_h, pred_t(5)-t_vx, pred_t(6)-t_vy];
     for i = 1:length(pred_t)
         if abs(ls(i)) < 1
