@@ -105,8 +105,8 @@ def optimize(losses):
     return train_op
 
 tf.reset_default_graph()
-im_width = 224
-im_height = 224
+im_width=224
+im_height=224
 print "good till here1"
 bbx_size = [8, 16, 32]
 bbx_ratio = [0.5, 1, 1.5]
