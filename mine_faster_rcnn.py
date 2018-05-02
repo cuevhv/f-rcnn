@@ -393,7 +393,7 @@ with tf.Session() as sess:
         plt.show()
         ay= np.expand_dims(y_hat, axis=0)
         q = np.where((ay == [0,0]).all(axis=-1))
-        for i in range(5500):
+        for i in range(2500):
             mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
                                                                predicted_labels, prediction, cross_entropy, sft_max_w_logit],
                                                       feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
@@ -417,6 +417,7 @@ with tf.Session() as sess:
         print(np.sum(mult_net2_s - np.array(encoded_training),axis=-2)/1764)
         g = np.greater(mult_net2_s, np.array([0,0,0,0]))
         b = np.any(g, axis=-1)
+        g2 = np.greater(np.expand_dims(y_hat, axis=0)[:,:,0], np.array([0.7]))
         dec = []
         c_dec = []
         for x in range(0,len(centres)):
@@ -425,13 +426,13 @@ with tf.Session() as sess:
             c_dec.append(decoding_bbx( mult_net2_s[0][x],centres[x])[1])
         dec = np.expand_dims(np.array(dec), 0)
         c_dec =  np.expand_dims(np.array(c_dec), 0)
-        print dec.shape, g.shape, mult_net2_s.shape, dec[b].shape
-        print c_dec[b]
+        print "wtf", dec.shape, g.shape, mult_net2_s.shape, dec[g2].shape
+        #print c_dec[g2]
         if show_img_:
             _,fig2 = plt.subplots(1)
             #fig1.axis([-600, 600, -600, 600])
             fig2.imshow(img)
-            draw_bbx(list(c_dec[b]), fig2, sze_of_img, im_width, im_height, True)
+            draw_bbx(list(c_dec[g2]), fig2, sze_of_img, im_width, im_height, True)
             plt.show()
         #anchors2 = net2_s[b]
         #print(anchors2)
