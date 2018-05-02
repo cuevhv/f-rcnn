@@ -130,9 +130,9 @@ def get_training_data(centres_mmxy, target_data):
                     candidates = encoding_bbx(target_con, anchor_con)
                     candidates.append(iou)
                     if target == [2, 0, 162, 206]:
-                        print("fucking cand", candidates)
-                        print("fucking anchors", anchor)
-                        print("fucking targets", target)
+                        print("getting cand", candidates)
+                        print("getting anchors", anchor)
+                        print("getting targets", target)
                     previous_iou = iou
 
                     #dec_target =
@@ -309,8 +309,8 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 print(y_reg, net2)
 F = mult_net2-y_reg
 comparison = tf.stop_gradient(tf.to_float(tf.less(tf.abs(F), tf.constant([1,1,1,1], dtype=tf.float32))))
-weird_m = 0.5*tf.square(F)*comparison+(tf.abs(F)-0.5)*(1-comparison)
-rs = tf.reduce_sum(weird_m, -1, keep_dims=True)#, axis=-1, keep_dims=True)
+hard_l2 = 0.5*tf.square(F)*comparison+(tf.abs(F)-0.5)*(1-comparison)
+rs = tf.reduce_sum(hard_l2, -1, keep_dims=True)#, axis=-1, keep_dims=True)
 ra = tf.reduce_mean(rs)
 #train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy+ra)
 train_step = tf.train.GradientDescentOptimizer(1e-4).minimize(cross_entropy+ra)
@@ -327,7 +327,7 @@ with tf.Session() as sess:
     sess.run(tf.local_variables_initializer())
     path = pathlib.Path('./../weights/vgg16_weights.npz')
     if(path.is_file()):
-        print("it's a mattafaca")
+        #print("it's a mattafaca")
         init_weights = np.load(path)
         #print type(init_weights)
         #print(init_weights.files)
@@ -378,7 +378,7 @@ with tf.Session() as sess:
             #fig1.axis([-600, 600, -600, 600])
             fig1.imshow(img)
         bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], sze_of_img, im_width, im_height)
-        print("suizerfasdf", bbxs_sizes[1])
+        print("bbxs_sizes first example", bbxs_sizes[1])
         #training_data, encoded_training, selected_anchors = get_training_data(centres_mmxy, bbxs_sizes[1])
         training_data, encoded_training, selected_anchors = new_get_training_data(centres_mmxy, bbxs_sizes[1])
         #print("hahaah",np.sum(np.array(training_data)-np.array(training_data1), axis=0))
