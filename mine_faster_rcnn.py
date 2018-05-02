@@ -78,35 +78,139 @@ def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
             for m in bbx_size:
                 for k in bbx_ratio:
                     centres.append([j, i, int(m*1/k), int(m*k)])
-                    centres_mmxy.append([int(j-m*1/(2*k)+1), int(i-m*k/2+1), int(j+m*1/(2*k)),
-                    int(i+m*k/2)])
+                    centres_mmxy.append([int(j-m*1/(2*k)+1), int(i-m*k/2+1), int(j+m*1/(2*k)), int(i+m*k/2)])
                     #for :
                     #
+    print centres_mmxy[0], centres[0], "centres"
     return centres, centres_mmxy
+def bbx_minmax_to_centre_size(bbx):
+    w = bbx[2]-bbx[0]+1
+    h = bbx[3]-bbx[1]+1
+    xc = w/2+bbx[0]-1
+    yc = h/2+bbx[1]-1
+
+    return [int(xc), int(yc), int(w), int(h)]
+
+def encoding_bbx(target, anchor):
+    tx = target[0]-anchor[0]/float(anchor[2])
+    ty = target[1]-anchor[1]/float(anchor[3])
+    tw = np.log(target[2]/float(anchor[2]))
+    th = np.log(target[3]/float(anchor[3]))
+    return [(tx), (ty), (tw), (th)]
+def decoding_bbx(enc_target, anchor):
+    px = enc_target[0]*float(anchor[2])+anchor[0]
+    py = enc_target[1]*float(anchor[3])+anchor[1]
+    pw = np.exp(enc_target[2])*float(anchor[2])
+    ph = np.exp(enc_target[3])*float(anchor[3])
+
+    return[px, py, pw, ph], [px-pw/2+1, py-ph/2+1, px+pw/2, py+ph/2]
 
 def get_training_data(centres_mmxy, target_data):
+    #[xmin, ymin, xmax, ymax]
+    dl = []
+    n_anchor = []
     new_output = []
+    encoded_data = []
+    candidates = []
     count = [0, 0, 0]
     for anchor in centres_mmxy:
+        previous_iou = 0
         mrk = 0
         is_t = 0
         for target in target_data:
             iou = read_voc.bb_intersection_over_union(anchor, target)
+            if target == [2, 0, 162, 206]:
+                dl.append(iou)
+                #print max(dl)
             if iou > 0.7:
                 is_t = 1
-                count[0] = 1+count[0]
-                new_output.append([1, 0])
-                break
+                if iou > previous_iou:
+                    anchor_con = bbx_minmax_to_centre_size(anchor)
+                    target_con = bbx_minmax_to_centre_size(target)
+                    candidates = encoding_bbx(target_con, anchor_con)
+                    candidates.append(iou)
+                    if target == [2, 0, 162, 206]:
+                        print("fucking cand", candidates)
+                        print("fucking anchors", anchor)
+                        print("fucking targets", target)
+                    previous_iou = iou
+
+                    #dec_target =
+                    #candidates =
             elif iou < 0.3:
                 mrk += 1
-        if (mrk == len(target_data)) and (is_t == 0):
+        if candidates == []:
+            pass
+            #encoded_data.append([0, 0, 0, 0])
+        else:
+            encoded_data.append(candidates)
+            n_anchor.append(anchor)
+        candidates = []
+        if is_t == 1:
+            count[0] = 1+count[0]
+            new_output.append([1, 0])
+        elif (mrk == len(target_data)) and (is_t == 0):
             new_output.append([0, 1])
             count[1] = 1+count[1]
         elif is_t == 0:
             new_output.append([0, 0])
             count[2] = 1+count[2]
-    print "letsee", len(new_output), count
-    return new_output
+    #print "letsee", len(new_output), count, len(encoded_data), encoded_data
+    return new_output, encoded_data, n_anchor
+
+def new_get_training_data(centres_mmxy, target_data):
+    #[xmin, ymin, xmax, ymax]
+    dl = []
+    n_anchor =[]
+    previous_iou = list(-1*np.ones(len(centres_mmxy)))
+    new_output = np.zeros([len(centres_mmxy), 2])
+    new_output[:,1] = np.ones(new_output[:,1].shape)
+    new_output = [list(x) for x in new_output]
+
+    encoded_data = np.zeros([len(centres_mmxy), 4])
+    encoded_data = [list(x) for x in encoded_data]
+    print("enc_dat", len(encoded_data))
+    candidates = []
+    count = [0, 0, 0]
+    for target in target_data:
+
+        target_count = 0
+        is_t = 0
+        anchor_count = 0
+        keep_old = -1
+        for anchor in centres_mmxy:
+            iou = read_voc.bb_intersection_over_union(anchor, target)
+
+            if iou > 0.7:
+                new_output[anchor_count] =[1, 0]
+                target_count = 1
+                if iou > previous_iou[anchor_count]:
+                    anchor_con = bbx_minmax_to_centre_size(centres_mmxy[anchor_count])
+                    target_con = bbx_minmax_to_centre_size(target)
+                    print('encoded_data', anchor_count, encoding_bbx(target_con, anchor_con))
+                    print('ecasdf', encoded_data[anchor_count])
+                    encoded_data[anchor_count] = encoding_bbx(target_con, anchor_con)
+                    n_anchor.append(centres_mmxy[anchor_count])
+            else:
+                if iou > keep_old:
+                    best_anch = anchor_count
+                    keep_old = iou
+            if (iou >= 0.3) and (iou <= 0.7) and (iou > previous_iou[anchor_count]):
+                new_output[anchor_count] =[0, 0]
+
+            if iou > previous_iou[anchor_count]:
+                previous_iou[anchor_count] = iou
+                #keep_old = anchor_count
+            anchor_count += 1
+        if target_count == 0:
+            anchor_con = bbx_minmax_to_centre_size(centres_mmxy[best_anch])
+            target_con = bbx_minmax_to_centre_size(target)
+            encoded_data[best_anch] = encoding_bbx(target_con, anchor_con)
+            new_output[best_anch] =[1, 0]
+            n_anchor.append(centres_mmxy[best_anch])
+
+    #print "letsee", len(new_output), count, len(encoded_data), encoded_data
+    return new_output, encoded_data, n_anchor
 
 def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = False):
     rec_patches = []
@@ -139,6 +243,7 @@ def resizing_targets(bbxs_sizes_img, sze_of_img, im_width, im_height):
         bbxs_sizes_img[n][2] = int(bbxs_sizes_img[n][2]*im_width/float(sze_of_img[0]))
         bbxs_sizes_img[n][3] = int(bbxs_sizes_img[n][3]*im_height/float(sze_of_img[1]))
     return bbxs_sizes_img
+
 def losses(logits, labels):
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
     return loss
@@ -158,7 +263,7 @@ tf.reset_default_graph()
 im_width = 224
 im_height = 224
 print "good till here1"
-bbx_size = [8, 64, 128]#[8, 16, 32]
+bbx_size = [8, 64, 128]#[8, 64, 128]#[8, 16, 32]
 bbx_ratio = [1, 1/1.5, 1.5]#[1, 0.5, 2]
 centres, centres_mmxy = gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height)
 print 'centres', len(centres)
@@ -172,18 +277,43 @@ bbxs_sizes = read_voc.getting_all_bbx(Annotation_images)
 
 im_placeholder = tf.placeholder(tf.float32, [None, im_height, im_width, 3])
 y_ = tf.placeholder(tf.float32, [None, 9*14*14, 2])
+y_reg = tf.placeholder(tf.float32, [None, 9*14*14, 4])
 
 net_cnn, net2, net1, logits = netvgg(im_placeholder, is_training=False)
-sft_max_w_logit = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits = net1)
+
+sum_y = tf.reduce_sum(y_, axis=-1, keep_dims=True)
+sum_y = tf.cast(sum_y, tf.float32)
+
+bull_a = tf.reduce_sum(y_, axis=-1)
+bull_a = tf.cast(bull_a, tf.bool)
+
+mult_net1 = tf.multiply(net1, sum_y)
+mult_net2 = tf.multiply(net2, sum_y)
+
+bm_net1 = tf.boolean_mask(mult_net1, bull_a)
+bm_y_ = tf.boolean_mask(y_, bull_a)
+bm_net1 = tf.argmax(bm_net1, -1)
+bm_y_ = tf.argmax(bm_y_, -1)
+
+sft_max_w_logit = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits = mult_net1)
 cross_entropy = tf.reduce_mean(sft_max_w_logit)
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+###train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 #train_step = optimize(cross_entropy)
 #correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
-argmax_1 = tf.argmax(net1,2)
-argmax_2 = tf.argmax(y_,2)
-correct_prediction = tf.equal(argmax_1, argmax_2)
+argmax_1 = tf.argmax(net1,-1)
+argmax_2 = tf.argmax(y_,-1)
+correct_prediction = tf.equal(bm_net1, bm_y_)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
+###
+print(y_reg, net2)
+F = mult_net2-y_reg
+comparison = tf.stop_gradient(tf.to_float(tf.less(tf.abs(F), tf.constant([1,1,1,1], dtype=tf.float32))))
+weird_m = 0.5*tf.square(F)*comparison+(tf.abs(F)-0.5)*(1-comparison)
+rs = tf.reduce_sum(weird_m, -1, keep_dims=True)#, axis=-1, keep_dims=True)
+ra = tf.reduce_mean(rs)
+#train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy+ra)
+train_step = tf.train.GradientDescentOptimizer(1e-4).minimize(cross_entropy+ra)
 
 prediction = tf.nn.softmax(logits)
 predicted_labels = tf.argmax(prediction, 1)
@@ -240,28 +370,40 @@ with tf.Session() as sess:
         #img = Image.open('data/cat1.jpg')
         img = Image.open(JPEG_images[1])
         sze_of_img = img.size
-        show_img_ = False
+        show_img_ = True
 
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         if show_img_:
             _,fig1 = plt.subplots(1)
+            #fig1.axis([-600, 600, -600, 600])
             fig1.imshow(img)
         bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], sze_of_img, im_width, im_height)
-        training_data = get_training_data(centres_mmxy, bbxs_sizes[1])
+        print("suizerfasdf", bbxs_sizes[1])
+        #training_data, encoded_training, selected_anchors = get_training_data(centres_mmxy, bbxs_sizes[1])
+        training_data, encoded_training, selected_anchors = new_get_training_data(centres_mmxy, bbxs_sizes[1])
+        #print("hahaah",np.sum(np.array(training_data)-np.array(training_data1), axis=0))
+        #print(selected_anchors2)
+        #print("list", list(np.array(training_data)-np.array(training_data1)))
         y_hat = np.array(training_data)
         print np.expand_dims(y_hat, axis=0).shape, y_hat.shape
+        draw_bbx(selected_anchors, fig1, sze_of_img, im_width, im_height, True)
         #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
         #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, False)
         #draw_bbx(centres_mmxy[19*5:19*5+10], fig1, sze_of_img, im_width, im_height, True)
         plt.show()
-        for i in range(1000):
-            #train_step.run(feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0)})
-            argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([argmax_1, argmax_2, train_step, net_cnn, net2, net1,
+        ay= np.expand_dims(y_hat, axis=0)
+        q = np.where((ay == [0,0]).all(axis=-1))
+        for i in range(5500):
+            mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
                                                                predicted_labels, prediction, cross_entropy, sft_max_w_logit],
-                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0)})
+                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
+
+
             #print sft_max_w_logit_s.shape
             #print net1_s[0][1]
-            if i % 20 == 0:
+            if i % 50 == 0:
+
+
                 print(i, x_entropy)
                 print("argmax1", argmax_1s, net1_s[0][1])
                 print("argmax2", argmax_2s, net1_s[0][1])
@@ -271,9 +413,33 @@ with tf.Session() as sess:
         print(net_cnn_s.shape)
         print(net1_s.shape)
         print(net2_s.shape)
-        print(x_entropy)
-        print("res", net1_s)
-        print("pred", y_hat)
-        m1 = np.argmax(net1_s, axis = -1)
-        m2 = np.argmax(y_hat, axis = -1)
-        print(np.sum(np.equal(m1, m2)))/1764.0
+        print(net2_s)
+        print(np.sum(mult_net2_s - np.array(encoded_training),axis=-2)/1764)
+        g = np.greater(mult_net2_s, np.array([0,0,0,0]))
+        b = np.any(g, axis=-1)
+        dec = []
+        c_dec = []
+        for x in range(0,len(centres)):
+            #print(mult_net2_s[0][x])
+            dec.append(decoding_bbx( mult_net2_s[0][x],centres[x])[0])
+            c_dec.append(decoding_bbx( mult_net2_s[0][x],centres[x])[1])
+        dec = np.expand_dims(np.array(dec), 0)
+        c_dec =  np.expand_dims(np.array(c_dec), 0)
+        print dec.shape, g.shape, mult_net2_s.shape, dec[b].shape
+        print c_dec[b]
+        if show_img_:
+            _,fig2 = plt.subplots(1)
+            #fig1.axis([-600, 600, -600, 600])
+            fig2.imshow(img)
+            draw_bbx(list(c_dec[b]), fig2, sze_of_img, im_width, im_height, True)
+            plt.show()
+        #anchors2 = net2_s[b]
+        #print(anchors2)
+        ##print(x_entropy)
+        ##print("res", net1_s)
+        ##print("pred", y_hat)
+        ##m1 = np.argmax(net1_s, axis = -1)
+        ##m2 = np.argmax(y_hat, axis = -1)
+        #print(np.sum(np.equal(m1, m2)))/1764.0
+
+        ##print(bm_y_s, bm_net1_s)
