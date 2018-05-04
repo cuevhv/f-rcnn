@@ -21,3 +21,5 @@ Steps
   - run mine_faster_rcnn.py
   
 NOTE: read_voc.py will read the files of the PASCAL VOC dataset and return the file path of the images and labels of a given class.
+
+Some useful links can be found in: https://github.com/cuevhv/f-rcnn/blob/master/useful_links.txt
