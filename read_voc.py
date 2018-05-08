@@ -227,7 +227,7 @@ def print_images(JPEG_images, Annotation_images, df, type_data, shw_example = Tr
         print "Image it was closed"
         cv2.destroyAllWindows()
 
-def getting_all_bbx(Annotation_images):
+def getting_all_bbx(Annotation_images, type_data, df):
     class_size = len(Annotation_images)
     print "There are %d of " %(class_size)+type_data
     bbxs_sizes = []
@@ -269,11 +269,11 @@ def bb_intersection_over_union(boxA, boxB):
     # return the intersection over union value
     return iou
 
-type_data = 'person'
-shw_example = False
-JPEG_images, Annotation_images, df = load_data_full(type_data, shw_example)
-bbxs_sizes = getting_all_bbx(Annotation_images)
-print_images(JPEG_images, Annotation_images, df, type_data, shw_example)
-print bbxs_sizes[1]
-print bb_intersection_over_union(bbxs_sizes[1][0], bbxs_sizes[1][1])
-print bb_intersection_over_union([1, 1, 3, 3], [1, 1, 3, 3])
+#type_data = 'person'
+#shw_example = False
+#JPEG_images, Annotation_images, df = load_data_full(type_data, shw_example)
+#bbxs_sizes = getting_all_bbx(Annotation_images)
+#print_images(JPEG_images, Annotation_images, df, type_data, shw_example)
+#print bbxs_sizes[1]
+#print bb_intersection_over_union(bbxs_sizes[1][0], bbxs_sizes[1][1])
+#print bb_intersection_over_union([1, 1, 3, 3], [1, 1, 3, 3])
