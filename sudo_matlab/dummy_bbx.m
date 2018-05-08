@@ -10,6 +10,11 @@ x = 6;
 y = 4;
 w = 8;
 h = 4;
+
+x = 40;
+y = 72;
+w = 84
+h = 192;
 rectangle('Position',[x-w/2 y-h/2 w h], 'EdgeColor', 'b')
 
 

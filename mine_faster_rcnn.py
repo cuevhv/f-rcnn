@@ -39,7 +39,7 @@ def netvgg(inputs, is_training = True):
 
             net1 = Reshape((-1, 2), input_shape=(net1.shape[1], net1.shape[2], net1.shape[3]))(net1)
             #net1 = tf.reshape(net1, [0, -1, -1, 2])
-            net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox')
+            net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox', activation_fn=tf.nn.tanh)
             net2 = Reshape((-1, 4), input_shape=(net2.shape[1], net2.shape[2], net2.shape[3]))(net2)
 
             net = slim.max_pool2d(net, [2, 2], scope = 'pool5')
@@ -92,8 +92,8 @@ def bbx_minmax_to_centre_size(bbx):
     return [int(xc), int(yc), int(w), int(h)]
 
 def encoding_bbx(target, anchor):
-    tx = target[0]-anchor[0]/float(anchor[2])
-    ty = target[1]-anchor[1]/float(anchor[3])
+    tx = (target[0]-anchor[0])/float(anchor[2])
+    ty = (target[1]-anchor[1])/float(anchor[3])
     tw = np.log(target[2]/float(anchor[2]))
     th = np.log(target[3]/float(anchor[3]))
     return [(tx), (ty), (tw), (th)]
@@ -162,6 +162,7 @@ def new_get_training_data(centres_mmxy, target_data):
     #[xmin, ymin, xmax, ymax]
     dl = []
     n_anchor =[]
+    n_anchor_normal_form = []
     previous_iou = list(-1*np.ones(len(centres_mmxy)))
     new_output = np.zeros([len(centres_mmxy), 2])
     new_output[:,1] = np.ones(new_output[:,1].shape)
@@ -187,10 +188,11 @@ def new_get_training_data(centres_mmxy, target_data):
                 if iou > previous_iou[anchor_count]:
                     anchor_con = bbx_minmax_to_centre_size(centres_mmxy[anchor_count])
                     target_con = bbx_minmax_to_centre_size(target)
+                    print('ecasdf', target_con, anchor_con)
                     print('encoded_data', anchor_count, encoding_bbx(target_con, anchor_con))
-                    print('ecasdf', encoded_data[anchor_count])
                     encoded_data[anchor_count] = encoding_bbx(target_con, anchor_con)
                     n_anchor.append(centres_mmxy[anchor_count])
+                    n_anchor_normal_form.append(anchor_con)
             else:
                 if iou > keep_old:
                     best_anch = anchor_count
@@ -208,9 +210,10 @@ def new_get_training_data(centres_mmxy, target_data):
             encoded_data[best_anch] = encoding_bbx(target_con, anchor_con)
             new_output[best_anch] =[1, 0]
             n_anchor.append(centres_mmxy[best_anch])
+            n_anchor_normal_form.append(anchor_con)
 
     #print "letsee", len(new_output), count, len(encoded_data), encoded_data
-    return new_output, encoded_data, n_anchor
+    return new_output, encoded_data, n_anchor, n_anchor_normal_form
 
 def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = False):
     rec_patches = []
@@ -370,7 +373,7 @@ with tf.Session() as sess:
         #img = Image.open('data/cat1.jpg')
         img = Image.open(JPEG_images[1])
         sze_of_img = img.size
-        show_img_ = True
+        show_img_ = False
 
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         if show_img_:
@@ -380,20 +383,21 @@ with tf.Session() as sess:
         bbxs_sizes[1] = resizing_targets(bbxs_sizes[1], sze_of_img, im_width, im_height)
         print("bbxs_sizes first example", bbxs_sizes[1])
         #training_data, encoded_training, selected_anchors = get_training_data(centres_mmxy, bbxs_sizes[1])
-        training_data, encoded_training, selected_anchors = new_get_training_data(centres_mmxy, bbxs_sizes[1])
+        training_data, encoded_training, selected_anchors, selected_anchors_normal = new_get_training_data(centres_mmxy, bbxs_sizes[1])
         #print("hahaah",np.sum(np.array(training_data)-np.array(training_data1), axis=0))
         #print(selected_anchors2)
         #print("list", list(np.array(training_data)-np.array(training_data1)))
         y_hat = np.array(training_data)
         print np.expand_dims(y_hat, axis=0).shape, y_hat.shape
-        draw_bbx(selected_anchors, fig1, sze_of_img, im_width, im_height, True)
-        #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
-        #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, False)
-        #draw_bbx(centres_mmxy[19*5:19*5+10], fig1, sze_of_img, im_width, im_height, True)
-        plt.show()
+        if show_img_:
+            draw_bbx(selected_anchors, fig1, sze_of_img, im_width, im_height, True)
+            #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, True)
+            #draw_bbx(bbxs_sizes[1], fig1, sze_of_img, im_width, im_height, False)
+            #draw_bbx(centres_mmxy[19*5:19*5+10], fig1, sze_of_img, im_width, im_height, True)
+            plt.show()
         ay= np.expand_dims(y_hat, axis=0)
         q = np.where((ay == [0,0]).all(axis=-1))
-        for i in range(2500):
+        for i in range(3000):
             mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
                                                                predicted_labels, prediction, cross_entropy, sft_max_w_logit],
                                                       feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
@@ -420,6 +424,8 @@ with tf.Session() as sess:
         g2 = np.greater(np.expand_dims(y_hat, axis=0)[:,:,0], np.array([0.7]))
         dec = []
         c_dec = []
+        #print("centres", mult_net2_s[g2])
+        print "START X"
         for x in range(0,len(centres)):
             #print(mult_net2_s[0][x])
             dec.append(decoding_bbx( mult_net2_s[0][x],centres[x])[0])
@@ -434,6 +440,11 @@ with tf.Session() as sess:
             fig2.imshow(img)
             draw_bbx(list(c_dec[g2]), fig2, sze_of_img, im_width, im_height, True)
             plt.show()
+        print("predicted", mult_net2_s[g2])
+
+        print("target", np.expand_dims(encoded_training, axis=0)[g2])
+
+        print "target2", selected_anchors_normal
         #anchors2 = net2_s[b]
         #print(anchors2)
         ##print(x_entropy)
