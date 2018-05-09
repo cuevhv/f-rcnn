@@ -160,7 +160,7 @@ def get_training_data(centres_mmxy, target_data):
             new_output.append([0, 1])
             count[1] = 1+count[1]
         elif is_t == 0:
-            new_output.append([0, 0])
+            new_output.append([0, 0]) # 0, 0
             count[2] = 1+count[2]
     #print "letsee", len(new_output), count, len(encoded_data), encoded_data
     return new_output, encoded_data, n_anchor
@@ -207,7 +207,7 @@ def new_get_training_data(centres_mmxy, target_data):
                     best_anch = anchor_count
                     keep_old = iou
             if (iou >= 0.3) and (iou <= 0.7) and (iou > previous_iou[anchor_count]):
-                new_output[anchor_count] =[0, 0]
+                new_output[anchor_count] =[0, 1] #[0, 0]
 
             if iou > previous_iou[anchor_count]:
                 previous_iou[anchor_count] = iou
@@ -273,7 +273,7 @@ def load_data(n_examples, im_width, im_height, type_data):
     for n_example in n_examples:
         img = Image.open(JPEG_images[n_example])
         sze_of_img = img.size
-        show_img_ = False
+        show_img_ = True
         #print bbxs_sizes[n_example]
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         group_img[cnt] = img
@@ -361,7 +361,7 @@ bull_a = tf.cast(bull_a, tf.bool)
 
 mult_net1 = tf.multiply(net1, sum_y)
 mult_net11 = mult_net1
-#mult_net11 = net1*sum_yreg ## If you want to use the mask of the regressor
+#mult_net11 = net1*(2*sum_yreg-1) ## If you want to use the mask of the regressor
 print mult_net11
 mult_net2 = tf.multiply(net2, sum_yreg)
 
@@ -396,7 +396,7 @@ print "Net1 ", net1.shape, "Net2", net2.shape
 print "good till here2"
 
 ###LOAD DATA #####
-n_examples =[3,4,5]
+n_examples =[215, 25, 5, 10, 11, 12,13,14,15,16,17,18,19,20]
 sze_of_img_all, img_all, training_data_all, encoded_training_all, c, selected_anchors_normal_all = load_data(n_examples, im_width, im_height, type_data)
 print "SHAPES!asdfasdaaKKKKK"
 #print ga.shape, a.shape, b.shape, c.shape, d.shape
@@ -493,7 +493,7 @@ with tf.Session() as sess:
         print sma
         ##
         #g2 = np.not_equal(np.expand_dims(encoded_training, axis=0)[:,:,0], np.array([0]))
-        for i in range(10000):
+        for i in range(5000):
 #            mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
 #                                                               predicted_labels, prediction, cross_entropy, sft_max_w_logit],
 #                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
@@ -531,8 +531,8 @@ with tf.Session() as sess:
             if prx[0] > 0.5:
                 print prx
 
-            print ":'(", np.sum(mult_net1_s[0])
-        g2 = np.greater(y_hat[0,:,0], np.array([0.7]))
+        print ":'(", np.sum(mult_net1_s[0], keepdims=True)
+        g2 = np.greater(mult_net1_s[:,:,0], np.array([0.7]))
         dec = []
         c_dec = []
         #print("centres", mult_net2_s[g2])
@@ -545,14 +545,14 @@ with tf.Session() as sess:
             #c_dec.append(decoding_bbx(np.expand_dims(encoded_training, axis=0)[0][x],centres[x])[1])
         dec = np.expand_dims(np.array(dec), 0)
         c_dec =  np.expand_dims(np.array(c_dec), 0)
-        print "wtf", dec.shape, g.shape, mult_net2_s.shape, g2.shape,
-        print "tf2", dec[0][g2].shape
+        print "wtf", dec.shape, g.shape, mult_net2_s.shape, g2[0].shape,
+        print "tf2", dec[0][g2[0]].shape
         #print c_dec[g2]
         show_img_ = True
 
-        print("predicted", mult_net2_s[0][g2])
+        print("predicted", mult_net2_s[0][g2[0]])
 
-        print("target", encoded_training_all[0][g2])
+        print("target", encoded_training_all[0][g2[0]])
 
         print "target2", selected_anchors_normal_all[0]
 
@@ -560,7 +560,7 @@ with tf.Session() as sess:
             _,fig2 = plt.subplots(1)
             #fig1.axis([-600, 600, -600, 600])
             fig2.imshow(img_all[0])
-            draw_bbx(list(c_dec[0][g2]), fig2, sze_of_img_all[0], im_width, im_height, True)
+            draw_bbx(list(c_dec[0][g2[0]]), fig2, sze_of_img_all[0], im_width, im_height, True)
             plt.show()
         #anchors2 = net2_s[b]
         #print(anchors2)
@@ -572,3 +572,33 @@ with tf.Session() as sess:
         #print(np.sum(np.equal(m1, m2)))/1764.0
 
         ##print(bm_y_s, bm_net1_s)
+        for ii in range(len(n_examples)):
+            dec = []
+            c_dec = []
+            #print("centres", mult_net2_s[g2])
+            print "START X"
+            for x in range(0,len(centres)):
+                #print(mult_net2_s[0][x])
+                dec.append(decoding_bbx( mult_net2_s[ii][x],centres[x])[0])
+                c_dec.append(decoding_bbx( mult_net2_s[ii][x],centres[x])[1])
+                #target
+                #c_dec.append(decoding_bbx(np.expand_dims(encoded_training, axis=0)[0][x],centres[x])[1])
+            dec = np.expand_dims(np.array(dec), 0)
+            c_dec =  np.expand_dims(np.array(c_dec), 0)
+            print "wtf", dec.shape, g.shape, mult_net2_s.shape, g2[ii].shape,
+            #print c_dec[g2]
+            show_img_ = True
+
+            print("predicted", mult_net2_s[ii][g2[ii]])
+
+            print("target", encoded_training_all[ii][g2[ii]])
+
+            print "target2", selected_anchors_normal_all[ii]
+
+            if show_img_:
+                print ii
+                _,fig2 = plt.subplots(1)
+                #fig1.axis([-600, 600, -600, 600])
+                fig2.imshow(img_all[ii])
+                draw_bbx(list(c_dec[0][g2[ii]]), fig2, sze_of_img_all[ii], im_width, im_height, True)
+                plt.show()
