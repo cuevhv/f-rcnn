@@ -4,14 +4,16 @@ import numpy as np
 
 a = tf.placeholder(tf.float32, [None, 3,4])
 b = tf.constant([[[3, 2, 1, 0],[3, 2, 1, 0],[3, 2, 1, 0]], [[3, 2, 1, 0],[3, 2, 1, 0],[3, 2, 1, 0]]], dtype=tf.float32)
+c = tf.placeholder(tf.float32, [None,3,2])
+
 s = tf.reduce_sum(a, axis=-1, keep_dims=True)
-s = tf.greater(s, 0)
+s = tf.not_equal(s, 0)
 s = tf.cast(s, tf.float32)
-e = tf.multiply(a, s)
+e = tf.multiply(c, s)
 
 
-a_ = np.array([[[1, 1, 1, 0],[0, 0, 0, 0],[0, 0, 0, 0]], [[0, 0, 0, 0],[1, 2, 1, 0],[3, 2, 1, 0]]])
-
+a_ = np.array([[[-1, -1, -1, 0],[0, 0, 0, 0],[0, 0, 0, 0]], [[0, 0, 0, 0],[1, 2, 1, 0],[3, 2, 1, 0]]])
+c_ = np.array([[[3, 20],[3, 0],[3, 0]], [[1, 0],[3, 0],[1, 0]]])
 sess = tf.InteractiveSession()
 init = tf.global_variables_initializer()
 sess.run(init)
@@ -21,6 +23,6 @@ sess.run(init)
 #print "a", aa_s
 #print bm_s
 #print "condition test"
-print(sess.run([s, e], feed_dict={a:a_}))
+print(sess.run([s, e], feed_dict={a:a_, c:c_}))
 
 #print("sqia", sess.run(ra))
