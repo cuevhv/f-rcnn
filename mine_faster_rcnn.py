@@ -45,7 +45,7 @@ def netvgg(inputs, is_training = True):
             input_shape = tf.shape(net1)
             rshpsssss = tf.reshape(net1, [-1, input_shape[-1]])
             print "rshpsssss", rshpsssss
-            net1 = tf.nn.softmax(net1)
+            #net1 = tf.nn.softmax(net1)
             net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox', weights_initializer=initializer, activation_fn=None)
             net2 = Reshape((-1, 4), input_shape=(net2.shape[1], net2.shape[2], net2.shape[3]))(net2)
 
@@ -273,7 +273,7 @@ def load_data(n_examples, im_width, im_height, type_data):
     for n_example in n_examples:
         img = Image.open(JPEG_images[n_example])
         sze_of_img = img.size
-        show_img_ = True
+        show_img_ = False
         #print bbxs_sizes[n_example]
         img = np.array(img.resize((im_width,im_height), Image.ANTIALIAS))
         group_img[cnt] = img
@@ -370,6 +370,7 @@ bm_y_ = tf.boolean_mask(y_, bull_a)
 bm_net1 = tf.argmax(bm_net1, -1)
 bm_y_ = tf.argmax(bm_y_, -1)
 
+#sft_max_w_logit = tf.nn.softmax_cross_entropy_with_logits(labels=tf.transpose(y_, perm=[0,2,1]), logits = tf.transpose(mult_net11, perm=[0,2,1]))
 sft_max_w_logit = tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits = mult_net11)
 cross_entropy = tf.reduce_mean(sft_max_w_logit)
 ###train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
@@ -396,7 +397,8 @@ print "Net1 ", net1.shape, "Net2", net2.shape
 print "good till here2"
 
 ###LOAD DATA #####
-n_examples =[215, 25, 5, 10, 11, 12,13,14,15,16,17,18,19,20]
+n_examples =[215, 25]#, 5, 10, 11, 12,13,14,15,16,17,18,19,20]
+n_examples = range(1, 64)
 sze_of_img_all, img_all, training_data_all, encoded_training_all, c, selected_anchors_normal_all = load_data(n_examples, im_width, im_height, type_data)
 print "SHAPES!asdfasdaaKKKKK"
 #print ga.shape, a.shape, b.shape, c.shape, d.shape
@@ -492,8 +494,10 @@ with tf.Session() as sess:
                 sma[1] += 1
         print sma
         ##
+        saver = tf.train.Saver()
+
         #g2 = np.not_equal(np.expand_dims(encoded_training, axis=0)[:,:,0], np.array([0]))
-        for i in range(5000):
+        for i in range(10000):
 #            mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
 #                                                               predicted_labels, prediction, cross_entropy, sft_max_w_logit],
 #                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
@@ -513,6 +517,7 @@ with tf.Session() as sess:
                 tr_acc = accuracy.eval(feed_dict={im_placeholder:img_all, y_:y_hat})
                 print('tr_acc', tr_acc)
                 print("predicted", mult_net2_s[g2])
+
 
 
 
@@ -602,3 +607,5 @@ with tf.Session() as sess:
                 fig2.imshow(img_all[ii])
                 draw_bbx(list(c_dec[0][g2[ii]]), fig2, sze_of_img_all[ii], im_width, im_height, True)
                 plt.show()
+        save_path = saver.save(sess, "/home/hanz/Documents/2018_lib/f-rcnn/tmp/model.ckpt")
+        print("Model saved in path: %s" % save_path)
