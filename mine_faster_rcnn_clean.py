@@ -19,6 +19,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 def netvgg(inputs, is_training = True):
+    """
+        Output: probability and regression
+        net1: probability
+        net2: regression
+    """
     inputs = tf.cast(inputs, tf.float32)
     inputs = ((inputs / 255.0) -0.5)*2
     num_anchors = 9
@@ -43,8 +48,9 @@ def netvgg(inputs, is_training = True):
             net1 = Reshape((-1, 2), input_shape=(net1.shape[1], net1.shape[2], net1.shape[3]))(net1)
             #net1 = tf.reshape(net1, [0, -1, -1, 2])
             input_shape = tf.shape(net1)
-            rshpsssss = tf.reshape(net1, [-1, input_shape[-1]])
-            print "rshpsssss", rshpsssss
+
+            #rshpsssss = tf.reshape(net1, [-1, input_shape[-1]])
+            #print "rshpsssss", rshpsssss
             #net1 = tf.nn.softmax(net1)
             net2 = slim.conv2d(net, 4*num_anchors, [1, 1], scope='bbox', weights_initializer=initializer, activation_fn=None)
             net2 = Reshape((-1, 4), input_shape=(net2.shape[1], net2.shape[2], net2.shape[3]))(net2)
@@ -55,10 +61,11 @@ def netvgg(inputs, is_training = True):
     return net_cnn, net2, net1
 #########################
 def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
-    """Output: Anchor box size
-       centres: [centre_x, centre_y, width, heigth]
-       centres_mmxy: [x_min, y_min, x_max, y_max]
-       """
+    """
+        Output: Anchor box size
+        centres: [centre_x, centre_y, width, heigth]
+        centres_mmxy: [x_min, y_min, x_max, y_max]
+    """
     #bbx_size = [8, 16, 32]
     #bbx_ratio = [1, 0.5, 2]
     num_anchors = len(bbx_size)*len(bbx_ratio)
@@ -76,7 +83,11 @@ def gen_anchor_bx(bbx_size, bbx_ratio, im_width, im_height):
                     #
     print centres_mmxy[0], centres[0], "centres"
     return centres, centres_mmxy
+
 def bbx_minmax_to_centre_size(bbx):
+    """
+        Output: transform minxy-maxxy bbx format to [centre_x, centre_y, width, heigth]
+    """
     w = bbx[2]-bbx[0]+1
     h = bbx[3]-bbx[1]+1
     xc = w/2+bbx[0]-1
@@ -85,12 +96,23 @@ def bbx_minmax_to_centre_size(bbx):
     return [int(xc), int(yc), int(w), int(h)]
 
 def encoding_bbx(target, anchor):
+    """
+        Output: Encoding Anchor box
+        from [centre_x, centre_y, width, heigth] ->
+        [(tx), (ty), (tw), (th)]
+    """
     tx = (target[0]-anchor[0])/float(anchor[2])
     ty = (target[1]-anchor[1])/float(anchor[3])
     tw = np.log(target[2]/float(anchor[2]))
     th = np.log(target[3]/float(anchor[3]))
     return [(tx), (ty), (tw), (th)]
+
 def decoding_bbx(enc_target, anchor):
+    """
+        Output: Decoding Anchor box
+        from [(tx), (ty), (tw), (th)] ->
+        [x_min, y_min, x_max, y_max]
+    """
     px = enc_target[0]*float(anchor[2])+anchor[0]
     py = enc_target[1]*float(anchor[3])+anchor[1]
     pw = np.exp(enc_target[2])*float(anchor[2])
@@ -98,61 +120,17 @@ def decoding_bbx(enc_target, anchor):
 
     return[px, py, pw, ph], [px-pw/2+1, py-ph/2+1, px+pw/2, py+ph/2]
 
-def get_training_data(centres_mmxy, target_data):
-    #[xmin, ymin, xmax, ymax]
-    dl = []
-    n_anchor = []
-    new_output = []
-    encoded_data = []
-    candidates = []
-    count = [0, 0, 0]
-    for anchor in centres_mmxy:
-        previous_iou = 0
-        mrk = 0
-        is_t = 0
-        for target in target_data:
-            iou = read_voc.bb_intersection_over_union(anchor, target)
-            if target == [2, 0, 162, 206]:
-                dl.append(iou)
-                #print max(dl)
-            if iou > 0.7:
-                is_t = 1
-                if iou > previous_iou:
-                    anchor_con = bbx_minmax_to_centre_size(anchor)
-                    target_con = bbx_minmax_to_centre_size(target)
-                    candidates = encoding_bbx(target_con, anchor_con)
-                    candidates.append(iou)
-                    if target == [2, 0, 162, 206]:
-                        print("getting cand", candidates)
-                        print("getting anchors", anchor)
-                        print("getting targets", target)
-                    previous_iou = iou
-
-                    #dec_target =
-                    #candidates =
-            elif iou < 0.3:
-                mrk += 1
-        if candidates == []:
-            pass
-            #encoded_data.append([0, 0, 0, 0])
-        else:
-            encoded_data.append(candidates)
-            n_anchor.append(anchor)
-        candidates = []
-        if is_t == 1:
-            count[0] = 1+count[0]
-            new_output.append([1, 0])
-        elif (mrk == len(target_data)) and (is_t == 0):
-            new_output.append([0, 1])
-            count[1] = 1+count[1]
-        elif is_t == 0:
-            new_output.append([0, 0]) # 0, 0
-            count[2] = 1+count[2]
-    #print "letsee", len(new_output), count, len(encoded_data), encoded_data
-    return new_output, encoded_data, n_anchor
-
 def new_get_training_data(centres_mmxy, target_data):
     #[xmin, ymin, xmax, ymax]
+    """
+        Output: Decoding Anchor box
+        new_output: p(object) label [1, 0] or [0, 1]
+        encoded_data: regresion [(tx), (ty), (tw), (th)]
+
+        NOT USED OUTPUTS!
+        n_anchor: [x_min, y_min, x_max, y_max]
+        n_anchor_normal_form: [centre_x, centre_y, width, heigth]
+    """
     true_anchors = []
     dl = []
     n_anchor =[]
@@ -213,6 +191,10 @@ def new_get_training_data(centres_mmxy, target_data):
     return new_output, encoded_data, n_anchor, n_anchor_normal_form
 
 def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = False):
+    """
+        Output: Draws the bounding boxes.
+        If is_anchor == True, then we don't resize, ow, we resized the bounding box
+    """
     rec_patches = []
     if is_anchor:
         im_width = sze_of_img[0]
@@ -235,6 +217,9 @@ def draw_bbx(bbxs_sizes_img, fig1, sze_of_img, im_width, im_height, is_anchor = 
     # Add the patch to the Axes
 
 def resizing_targets(bbxs_sizes_img, sze_of_img, im_width, im_height):
+    """
+        Output: resizes the bounding box training output to the fixed size of the CNN
+    """
     #print "bbx", bbxs_sizes_img, len(bbxs_sizes_img)
     for n in range(len(bbxs_sizes_img)):
         #print "nnn", bbxs_sizes_img[n]
@@ -246,6 +231,17 @@ def resizing_targets(bbxs_sizes_img, sze_of_img, im_width, im_height):
 
 
 def load_data(n_examples, im_width, im_height, type_data):
+    """
+        Output: Batch training data
+        sze_of_img_all: Img size of each image in the batch
+        group_img: stacked resized training images [n, 244,244,3]
+        np.array(training_data): traning probability output
+        np.array(encoded_training): training regression output
+
+        NOTE USED
+        np.array(selected_anchors):
+        np.array(selected_anchors_normal):
+    """
     shw_example = False
     JPEG_images, Annotation_images, df = read_voc.load_data_full(type_data, shw_example)
     bbxs_sizes = read_voc.getting_all_bbx(Annotation_images, type_data, df)
@@ -265,7 +261,6 @@ def load_data(n_examples, im_width, im_height, type_data):
         group_img[cnt] = img
         sze_of_img_all[cnt] = sze_of_img
         cnt += 1
-
 
         bbxs_sizes[n_example] = resizing_targets(bbxs_sizes[n_example], sze_of_img, im_width, im_height)
         print("bbxs_sizes first example", bbxs_sizes[n_example])
@@ -289,10 +284,16 @@ def load_data(n_examples, im_width, im_height, type_data):
     return sze_of_img_all, group_img, np.array(training_data), np.array(encoded_training), np.array(selected_anchors), np.array(selected_anchors_normal)
 
 def losses(logits, labels):
+    '''
+        NOT USED
+    '''
     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
     return loss
 
 def optimize(losses):
+    '''
+        NOT USED
+    '''
     global_step = tf.contrib.framework.get_or_create_global_step()
     lr = 0.1
     learning_rate = tf.train.exponential_decay(lr, global_step,
@@ -437,6 +438,7 @@ with tf.Session() as sess:
         sess.run(assign_op, feed_dict_init)
         #img = Image.open('data/cat1.jpg')
         """
+        NOT USED REFER TO BACKUP
         img = Image.open(JPEG_images[n_example])
         sze_of_img = img.size
         show_img_ = False

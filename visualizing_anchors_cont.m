@@ -1,8 +1,8 @@
 visualizing_anchors
 xp = 8+16*7; 
 yp = -8-16*6;
-wp = 32;
-hp = 32;
+wp = 8;
+hp = 8;
 
 
 pred_x = 0.25*wp+xp;
