@@ -483,8 +483,8 @@ with tf.Session() as sess:
 #            mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
 #                                                               predicted_labels, prediction, cross_entropy, sft_max_w_logit],
 #                                                      feed_dict={im_placeholder:np.expand_dims(img, axis=0), y_:np.expand_dims(y_hat, axis=0), y_reg: np.expand_dims(encoded_training, axis=0)})
-            mult_net1_s, mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s, pred_lbl, proba, x_entropy, sft_max_w_logit_s = sess.run([mult_net11, mult_net2, bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1,
-                                                               predicted_labels, prediction, cross_entropy, sft_max_w_logit],
+            mult_net1_s, mult_net2_s, bm_y_s, bm_net1_s, argmax_1s, argmax_2s, _, net_cnn_s, net2_s, net1_s = sess.run([mult_net11, mult_net2,
+                                                bm_y_, bm_net1, argmax_1, argmax_2, train_step, net_cnn, net2, net1],
                                                       feed_dict={im_placeholder:img_all, y_:y_hat, y_reg: encoded_training_all})
 
 
