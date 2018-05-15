@@ -425,13 +425,8 @@ with tf.Session() as sess:
                                                              'vgg_16/conv5/conv5_2/weights' : init_weights['conv5_2_W'],
                                                              'vgg_16/conv5/conv5_2/biases' : init_weights['conv5_2_b'],
                                                              'vgg_16/conv5/conv5_3/weights' : init_weights['conv5_3_W'],
-                                                             'vgg_16/conv5/conv5_3/biases' : init_weights['conv5_3_b'],
-                                                             'vgg_16/fc6/weights' : init_weights['fc6_W'],
-                                                             'vgg_16/fc6/biases' : init_weights['fc6_b'],
-                                                             'vgg_16/fc7/weights' : init_weights['fc7_W'],
-                                                             'vgg_16/fc7/biases' : init_weights['fc7_b'],
-                                                             'vgg_16/fc8/weights' : init_weights['fc8_W'],
-                                                             'vgg_16/fc8/biases' : init_weights['fc8_b'],
+                                                             'vgg_16/conv5/conv5_3/biases' : init_weights['conv5_3_b']
+
                                                              })
         #print(assign_op, feed_dict_init)
 
