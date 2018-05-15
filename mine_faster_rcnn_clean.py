@@ -493,7 +493,7 @@ with tf.Session() as sess:
             if i % 50 == 0:
 
 
-                print(i, x_entropy)
+                print(i)
                 print("argmax1", argmax_1s, net1_s[0][1])
                 print("argmax2", argmax_2s, net1_s[0][1], np.sum(net1_s[0][1]))
                 tr_acc = accuracy.eval(feed_dict={im_placeholder:img_all, y_:y_hat})
