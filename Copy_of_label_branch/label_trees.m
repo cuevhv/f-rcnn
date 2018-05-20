@@ -249,12 +249,14 @@ if rect(2) < 1
     end
     rect(2) = 1;
 end
-
-if rect(4) > handles.imsize(1)
-    rect(4) = handles.imsize(1);
+disp('sump')
+disp(rect(4)+rect(2))
+disp(rect(3)+rect(1))
+if rect(4)+rect(2) > handles.imsize(1)
+    rect(4) = handles.imsize(1)-rect(2);
 end
-if rect(3) > handles.imsize(2)
-    rect(3) = handles.imsize(2);
+if rect(3)+rect(1) > handles.imsize(2)
+    rect(3) = handles.imsize(2)-rect(1);
 end
 
 %[x,y] = getpts;
