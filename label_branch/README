@@ -1,0 +1,38 @@
+Run label_trees.m
+The file is a GUI. It is meant to draw bounding boxes and the direction vector and radius of the branches. It will also create a text file with the name of the image and the annotations made as content. The annotation is done in the following way.
+
+Each line in the labeled files represents one annotation and have 10 numbers separated by a semi-colon.
+[xmin, ymin, width, heigth, x_centre, y_centre, x_end-direction, y_end-direction, x_end-radious, y_end-radious]
+xmin, ymin, width, heigth = Bounding box parameters.
+x_centre, y_centre = centre of the branch.
+x_end-direction, y_end-direction = end point of the direction vector.
+x_end-radious, y_end-radious] = end point of the radious vector.
+
+Important commands:
+Folder path, Load!, Draw rectangles, Delete points.
+Go to their description to know how it works.
+
+HOW IT WORKS:
+- Folder path:
+	- Insert the path where your folder is located. E.g. /Users/username/Documents/2018/f-rcnn/data/
+
+- Load!:
+	- Load all the images in the file.
+	- If the folder 'label_files' doesn't exist it will be created to store the labeled files.
+	- The Files will be shown in 'Files in folder'.
+
+- Files in folder:
+	- Click in one of the files that show in the list will create a text file with the name of the image. Eg. 'Files in folder': img1.jpg -> img1.txt.
+
+- Labels:
+	- Shows the annotation made for each image. If it was previously done, it will load them. 
+
+- Draw rectangles:
+	- Draw the bounding box, and tree points which represents the centre of the branch, and the end points of the radious and direction vectors.
+	- Draw the bounding boxes:
+		press, drag and drop.
+	- The other 3 points:
+		3 clicks and then press enter.
+
+- Delete points:
+Select one of the points in the 'labels' list and it will delete the annotation from the list and the annotation text that belongs to the image.
