@@ -1,0 +1,39 @@
+<annotation>
+	 <folder>VOC_format</folder> 
+	 <filename>DSC00097</filename> 
+	 <source> 
+	 	 <database>Royal Garden Edinburgh</database>
+	 </source> 
+	 <size> 
+	 	 <width>5472</width> 
+	 	 <height>3648</height> 
+	 	 <depth>3</depth> 
+	 </size> 
+	 <segmented>0</segmented> 
+	 <object> 
+	 	 <name>branch_1</name> 
+	 	 <pose>Unspecified</pose> 
+	 	 <truncated>0</truncated> 
+	 	 <difficult>0</difficult> 
+	 	 <bndbox> 
+	 	 	 <xmin>2638</xmin> 
+	 	 	 <ymin> 114</ymin> 
+	 	 	 <xmax>3614</xmax> 
+	 	 	 <ymax>3648</ymax> 
+	 	 </bndbox> 
+	 <object> 
+	 	 <vectors> 
+	 	 	 <direction_vector> 
+	 	 	 	 <x_start>3025</x_start> 
+	 	 	 	 <y_start>1926</y_start> 
+	 	 	 	 <x_end>2939</x_end> 
+	 	 	 	 <y_end>1557</y_end> 
+	 	 	 </direction_vector> 
+	 	 	 <radius_vector> 
+	 	 	 	 <x_start>3025</x_start> 
+	 	 	 	 <y_start>1926</y_start> 
+	 	 	 	 <x_end>2853</x_end> 
+	 	 	 	 <y_end>1950</y_end> 
+	 	 	 </radius_vectors> 
+	 	 </vectors> 
+</annotation>
